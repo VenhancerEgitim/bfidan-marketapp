@@ -16,7 +16,8 @@ export const RegisterScreen = () => {
   const handleRegister = async (values: { email: string; password: string }) => {
     try {
       const response = await axios.post('https://reqres.in/api/register', values);
-      navigation.navigate('Login');
+      console.log('Kayıt başarılı:', response.data);
+      navigation.replace('Login');
     } catch (error) {
       console.error('Register hatası:', error);
     }
@@ -33,7 +34,7 @@ export const RegisterScreen = () => {
           actions.setSubmitting(false);
         }}
       >
-        {({ handleChange, handleBlur, handleSubmit, values, errors, touched, isSubmitting }) => (
+        {({ handleChange, handleSubmit, values, errors, touched, isSubmitting }) => (
           <View>
             <Text style={styles.label}>Email</Text>
             <TextInput

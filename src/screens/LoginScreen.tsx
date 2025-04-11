@@ -5,7 +5,7 @@ import * as Yup from 'yup';
 import axios from 'axios';
 import { useDispatch } from 'react-redux';
 import { useNavigation } from '@react-navigation/native';
-import { loginSuccess } from '../store/slices/authSlice';
+import { loginSuccess } from '../app/slices/authSlice';
 import { StackNavigationProp } from '@react-navigation/stack';
 
 const LoginSchema = Yup.object().shape({
@@ -20,17 +20,17 @@ export const LoginScreen = () => {
   const handleLogin = async (values: { email: string; password: string }) => {
     try {
       const response = await axios.post('https://reqres.in/api/login', values);
+      console.log('giris başarılı:', response.data);
       dispatch(loginSuccess(response.data.token));
       navigation.reset({
         index: 0,
-        routes: [{ name: 'Homepage' }],
+        routes: [{ name: 'Main' }],
       });
     } catch (error) {
       console.error('Login hatası:', error);
     }
   };
   
-
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Login</Text>
@@ -42,7 +42,7 @@ export const LoginScreen = () => {
           actions.setSubmitting(false);
         }}
       >
-        {({ handleChange, handleBlur, handleSubmit, values, errors, touched, isSubmitting }) => (
+        {({ handleChange, handleSubmit, values, errors, touched, isSubmitting }) => (
           <View>
             <Text style={styles.label}>Email</Text>
             <TextInput
@@ -69,7 +69,7 @@ export const LoginScreen = () => {
           </View>
         )}
       </Formik>
-      <TouchableOpacity onPress={() => navigation.navigate('Register')}>
+      <TouchableOpacity onPress={() => navigation.replace('Register')}>
         <Text style={styles.registerText}>Don't have an account? Signup</Text>
       </TouchableOpacity>
     </View>

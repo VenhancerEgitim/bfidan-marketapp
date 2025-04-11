@@ -7,7 +7,7 @@ export const WelcomeScreen = () => {
   return (
     <View style={styles.container}>
       <Text style={styles.text}>Welcome!</Text>
-      <Button title="Get Started" onPress={() => navigation.navigate('Login')} />
+      <Button title="Get Started" onPress={() => navigation.replace('Login')} />
     </View>
   );
 };
