@@ -22,7 +22,7 @@ export const fetchProductsByCategory = createAsyncThunk(
   }
 );
 
-interface Product {
+export interface Product {
   id: number;
   title: string;
   slug: string;

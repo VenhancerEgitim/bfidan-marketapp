@@ -1,49 +1,101 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { 
-  View, Text, FlatList, TouchableOpacity, Image, ActivityIndicator, StyleSheet, Modal, Pressable, 
-  TextInput
+import React, { useEffect, useCallback, useState } from 'react';
+import {
+  View,
+  Text,
+  FlatList,
+  TouchableOpacity,
+  Image,
+  ActivityIndicator,
+  StyleSheet,
+  Modal,
+  Pressable,
+  TextInput,
+  ScrollView,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
+import { useNavigation } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
 import _ from 'lodash';
 import { fetchProductsByCategory } from '../app/slices/productSlice';
 import type { AppDispatch, RootState } from '../app/store';
+import { addItem } from '../app/slices/cartSlice';
 import Icon from 'react-native-vector-icons/Ionicons';
 import filtersConfig from '../app/filtersConfig';
+import { ExploreStackParamList } from '../navigation/ExploreStack';
+
+type CategoryProductsScreenNavigationProp = StackNavigationProp<
+  ExploreStackParamList,
+  'CategoryProducts'
+>;
 
 export const CategoryProductsScreen = ({ route }: any) => {
   const { category } = route.params;
   const dispatch = useDispatch<AppDispatch>();
-  const [filterCategory, setFilterCategory] = useState('');
+  const navigation = useNavigation<CategoryProductsScreenNavigationProp>();
+
+  const [searchText, setSearchText] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('');
   const [isFilterModalVisible, setFilterModalVisible] = useState(false);
-  const [searchText, setSearchText] = useState('');
-  const { list: products, loading, error } = useSelector((state: RootState) => state.products);
+
+  const { list: products, loading, error } = useSelector(
+    (state: RootState) => state.products
+  );
+
+  const filterCategory = (category.slug || category.name).toLowerCase();
+  const currentFilterOptions = filtersConfig[filterCategory] || [];
 
   useEffect(() => {
-    if (category) {
-      setFilterCategory((category.slug || category.name).toLowerCase());
-    }
-  }, [category]);
+    dispatch(
+      fetchProductsByCategory({
+        categoryId: category.id,
+        filter:
+          searchText.trim() + (selectedFilter ? ' ' + selectedFilter.trim() : ''),
+      })
+    );
+  }, [dispatch, category, searchText, selectedFilter]);
 
-  const debouncedSearch = useCallback(
-    _.debounce((query: string, filter: string) => {
-      dispatch(fetchProductsByCategory({ categoryId: category.id, filter: query + (filter ? ' ' + filter : '') }));
-    }, 500),
+  const debouncedFetch = useCallback(
+    _.debounce((text: string, filter: string) => {
+      dispatch(
+        fetchProductsByCategory({
+          categoryId: category.id,
+          filter: text.trim() + (filter ? ' ' + filter.trim() : ''),
+        })
+      );
+    }, ),
     [dispatch, category]
   );
 
   useEffect(() => {
-    debouncedSearch(searchText, selectedFilter);
-  }, [searchText, selectedFilter, debouncedSearch]);
-
-  const currentFilterOptions = filtersConfig[filterCategory] || [];
+    debouncedFetch(searchText, selectedFilter);
+  }, [searchText, selectedFilter, debouncedFetch]);
 
   const renderProductItem = ({ item }: any) => (
-    <View style={styles.productCard}>
+    <TouchableOpacity
+      style={styles.productCard}
+      onPress={() => navigation.navigate('ProductDetail', { product: item })}
+    >
       <Image source={{ uri: item.images[0] }} style={styles.productImage} />
       <Text style={styles.productName}>{item.title}</Text>
-      <Text style={styles.productPrice}>${item.price}</Text>
-    </View>
+      <Text style={styles.productPrice}>${item.price.toFixed(2)}</Text>
+      <TouchableOpacity
+        style={styles.plusButton}
+        onPress={(event) => {
+          event.stopPropagation();
+          dispatch(
+            addItem({
+              id: item.id,
+              title: item.title,
+              price: item.price,
+              image: item.images[0],
+              quantity: 1,
+            })
+          );
+        }}
+      >
+        <Text style={styles.plusButtonText}>+</Text>
+      </TouchableOpacity>
+    </TouchableOpacity>
   );
 
   const renderFilterModal = () => (
@@ -53,30 +105,39 @@ export const CategoryProductsScreen = ({ route }: any) => {
       visible={isFilterModalVisible}
       onRequestClose={() => setFilterModalVisible(false)}
     >
-      <View style={styles.modalContainer}>
-        <View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>Select Filter for {filterCategory}</Text>
-          {currentFilterOptions.map((option) => (
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalBox}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Select Filter for {filterCategory}</Text>
+            <TouchableOpacity onPress={() => setFilterModalVisible(false)}>
+              <Icon name="close" size={24} color="#000" />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={styles.filterList}>
+            {currentFilterOptions.map((option) => (
+              <Pressable
+                key={option}
+                style={styles.filterOption}
+                onPress={() => {
+                  setSelectedFilter(option);
+                  setFilterModalVisible(false);
+                }}
+              >
+                <Text style={styles.filterOptionText}>{option}</Text>
+              </Pressable>
+            ))}
+
             <Pressable
-              key={option}
-              style={styles.filterOption}
+              style={[styles.filterOptionx, { backgroundColor: '#ddd' }]}
               onPress={() => {
-                setSelectedFilter(option);
+                setSelectedFilter('');
                 setFilterModalVisible(false);
               }}
             >
-              <Text style={styles.filterOptionText}>{option}</Text>
+              <Text style={styles.filterOptionText}>Clear Filter</Text>
             </Pressable>
-          ))}
-          <Pressable
-            style={[styles.filterOption, { backgroundColor: '#ddd' }]}
-            onPress={() => {
-              setSelectedFilter('');
-              setFilterModalVisible(false);
-            }}
-          >
-            <Text style={styles.filterOptionText}>Cancel</Text>
-          </Pressable>
+          </ScrollView>
         </View>
       </View>
     </Modal>
@@ -89,7 +150,6 @@ export const CategoryProductsScreen = ({ route }: any) => {
       </View>
     );
   }
-
   if (error) {
     return (
       <View style={styles.loaderContainer}>
@@ -100,11 +160,10 @@ export const CategoryProductsScreen = ({ route }: any) => {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.headerText}>{category.name} Products</Text>
-      <View style={styles.searchHeader}>
+      <View style={styles.headerRow}>
         <TextInput
           style={styles.searchInput}
-          placeholder="Search Products..."
+          placeholder="Search products..."
           value={searchText}
           onChangeText={setSearchText}
         />
@@ -112,7 +171,9 @@ export const CategoryProductsScreen = ({ route }: any) => {
           <Icon name="filter" size={24} color="#000" />
         </TouchableOpacity>
       </View>
+
       {renderFilterModal()}
+
       <FlatList
         data={products}
         renderItem={renderProductItem}
@@ -124,23 +185,11 @@ export const CategoryProductsScreen = ({ route }: any) => {
   );
 };
 
+export default CategoryProductsScreen;
+
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    backgroundColor: '#fff', 
-    padding: 16 
-  },
-  headerText: { 
-    fontSize: 20, 
-    fontWeight: 'bold', 
-    marginBottom: 16, 
-    textAlign: 'center' 
-  },
-  searchHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
+  container: { flex: 1, backgroundColor: '#fff', padding: 16 },
+  headerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
   searchInput: {
     flex: 1,
     borderWidth: 1,
@@ -149,60 +198,69 @@ const styles = StyleSheet.create({
     padding: 8,
     marginRight: 8,
   },
-  loaderContainer: { 
-    flex: 1, 
-    justifyContent: 'center', 
-    alignItems: 'center' 
-  },
-  productCard: { 
-    flex: 1,
-    margin: 8,
-    backgroundColor: '#f2f2f2', 
-    borderRadius: 8, 
-    padding: 12 
-  },
-  productImage: { 
-    width: '100%', 
-    height: 200, 
-    borderRadius: 8, 
-    resizeMode: 'cover' 
-  },
-  productName: { 
-    fontSize: 16, 
-    fontWeight: 'bold', 
-    marginTop: 8 
-  },
-  productPrice: { 
-    fontSize: 14, 
-    color: '#555', 
-    marginTop: 4 
-  },
-  modalContainer: {
+
+  loaderContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.5)',
   },
-  modalContent: {
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    padding: 16,
-    width: '80%',
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 12,
-  },
-  filterOption: {
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-    marginBottom: 8,
-  },
-  filterOptionText: {
-    fontSize: 16,
-  },
-});
 
-export default CategoryProductsScreen;
+  productCard: {
+    flex: 1,
+    backgroundColor: '#f2f2f2',
+    borderRadius: 8,
+    padding: 12,
+    margin: 8,
+    position: 'relative',
+  },
+  productImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: 8,
+    resizeMode: 'cover',
+  },
+  productName: { fontSize: 16, fontWeight: 'bold', marginTop: 8 },
+  productPrice: { fontSize: 14, color: '#555', marginTop: 4 },
+  plusButton: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#4CAF50',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  plusButtonText: { color: '#fff', fontSize: 20, fontWeight: 'bold' },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center', 
+    alignItems: 'center',
+  },
+  modalBox: {
+    width: '85%',
+    maxHeight: '80%', 
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    padding: 16,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  modalTitle: { fontSize: 18, fontWeight: 'bold' },
+  filterList: { marginTop: 12 }, 
+  filterOption: {
+    paddingVertical: 12,
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#eee',
+  },
+  filterOptionx:{
+    justifyContent: 'center', 
+    alignItems: 'center',
+  },
+  filterOptionText: { fontSize: 16},
+});

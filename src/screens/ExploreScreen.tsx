@@ -78,7 +78,6 @@ export const ExploreScreen = ({ navigation }: any) => {
   
   return (
     <View style={styles.container}>
-      <Text style={styles.headerText}>Find Products</Text>
       <SearchBar searchText={searchText} onChangeText={setSearchText} />
       {isSearching ? (
         <FlatList
